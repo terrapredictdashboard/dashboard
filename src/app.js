@@ -446,7 +446,7 @@ app.put('/api/user/zone/:id', requiresAuth(), async (req, res) => {
 
 async function fetchMicroclimateData(geojson) {
   try {
-    const response = await axios.post('https://api-i6e7.onrender.com/microclimate/divider', {
+    const response = await axios.post('https://337afb03-7461-4732-b41b-347828d3ceaa-00-2e59eqqzeo37t.worf.replit.dev/microclimate/divider', {
       geojson: geojson
     }, {
       headers: {
@@ -584,6 +584,16 @@ app.post('/api/notifications/:id/read', requiresAuth(), (req, res) => {
   });
 });
 
+function pingReplitAPI() {
+  axios.get('https://337afb03-7461-4732-b41b-347828d3ceaa-00-2e59eqqzeo37t.worf.replit.dev/keep-alive')
+    .then(() => {
+      logger.info('Ping exitoso a la API de Replit');
+    })
+    .catch((error) => {
+      logger.error('Error al hacer ping a la API de Replit:', error.message);
+    });
+}
+
 // Error handling
 app.use(notFound);
 app.use(errorHandler);
@@ -591,4 +601,6 @@ app.use(errorHandler);
 // Start server
 app.listen(config.port, () => {
   logger.info(`🚀 Server running on http://localhost:${config.port}`);
+  
+  setInterval(pingReplitAPI, 30000);
 });
