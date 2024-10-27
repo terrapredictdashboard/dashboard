@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TerraPredict Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/hover.css/2.3.1/css/hover-min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <style>
+        @keyframes countUp {
+            from { content: "0"; }
+            to { content: attr(data-target); }
+        }
+        .count-up::after {
+            content: "0";
+            animation: countUp 2s forwards;
+        }
+        .gradient-bg {
+            background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
+        }
+        .sidebar {
+            transition: all 0.3s ease-in-out;
+        }
+        .sidebar.collapsed {
+            width: 60px;
+        }
+        .sidebar-text {
+            transition: opacity 0.3s ease-in-out;
+        }
+        #toggleSidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .text-primary {
+            color: #60d4ac !important;
+        }
+    
+        /* Estilos actualizados para el modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5vh auto;
+            padding: 30px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #map {
+            height: 50vh;
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    
+        /* Estilos actualizados para las notificaciones */
+        #notificationContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .notification {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            padding: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            animation: bounceIn 0.5s ease-out;
+            transition: all 0.3s ease;
+        }
+        .notification:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+        }
+        .notification.success { border-left: 4px solid #10B981; }
+        .notification.error { border-left: 4px solid #EF4444; }
+        .notification.info { border-left: 4px solid #3B82F6; }
+        .notification-icon {
+            margin-right: 12px;
+            font-size: 24px;
+            animation: pulse 2s infinite;
+        }
+        .notification-content {
+            flex-grow: 1;
+        }
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #1F2937;
+        }
+        .notification-message {
+            color: #4B5563;
+        }
+        .notification-close {
+            cursor: pointer;
+            font-size: 18px;
+            color: #9CA3AF;
+            transition: color 0.3s ease;
+        }
+        .notification-close:hover {
+            color: #4B5563;
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans flex">
+   <!-- Sidebar -->
+   <aside id="sidebar" class="bg-white shadow-lg w-64 min-h-screen p-4 sidebar transition-all duration-300 ease-in-out flex-shrink-0 relative">
+    <div class="flex items-center justify-end mb-6">
+        <button id="toggleSidebar" class="text-gray-500 hover:text-gray-700 transition-colors duration-300">
+            <i class="fas fa-chevron-left text-xl"></i>
+        </button>
+    </div>
+    <nav>
+        <ul id="sidebarMenu" class="space-y-4">
+            <!-- El menú del sidebar se generará dinámicamente aquí -->
+        </ul>
+    </nav>
+</aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <nav class="bg-white shadow-lg">
+            <div class="mx-auto px-4">
+                <div class="flex justify-between">
+                    <div class="flex space-x-7">
+                        <div>
+                            <a href="https://terrapredict.onrender.com" class="flex items-center py-4 px-2">
+                                <img src="/img/terrapredict_logo.png" alt="TerraPredict Logo" class="h-12 w-auto mr-2">
+                                <h1 class="text-primary text-4xl font-medium">TerraPredict</h1>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="hidden md:flex items-center space-x-3">
+                        <a href="#" class="py-2 px-2 font-medium text-gray-500 rounded hover:bg-green-500 hover:text-white transition duration-300">
+                            <i class="fas fa-tachometer-alt"></i> 
+                            Dashboard
+                        </a>
+                        <a href="#" class="py-2 px-2 font-medium text-gray-500 rounded hover:bg-green-500 hover:text-white transition duration-300">
+                            <i class="fas fa-chart-line"></i>
+                            Predicciones
+                        </a>
+                        <a href="#" class="py-2 px-2 font-medium text-gray-500 rounded hover:bg-green-500 hover:text-white transition duration-300">
+                            <i class="fas fa-cog"></i> 
+                            Configuración
+                        </a>
+                        <button id="notificationsButton" class="py-2 px-2 font-medium text-gray-500 rounded hover:bg-green-500 hover:text-white transition duration-300 relative">
+                            <i class="fas fa-bell"></i>
+                            <span id="notificationCount" class="absolute top-0 right-0 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">0</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto px-4 py-8 flex-1 overflow-y-auto">
+            <h1 class="text-4xl font-bold text-gray-800 mb-8 animate__animated animate__fadeInDown">Dashboard de TerraPredict</h1>
+            
+            <div id="user-info" class="bg-white rounded-lg shadow-md p-6 mb-8 animate__animated animate__fadeInUp">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Información del Usuario</h2>
+                <div id="user-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- User data will be populated here -->
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 animate__animated animate__fadeInUp">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Temperatura Promedio</h2>
+                    <div class="flex items-center">
+                        <i class="fas fa-temperature-high text-3xl text-green-500 mr-4"></i>
+                        <div>
+                            <p class="text-3xl font-bold text-green-500 count-up" data-target="28">28</p>
+                            <p class="text-sm text-gray-500">°C</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Humedad Relativa</h2>
+                    <div class="flex items-center">
+                        <i class="fas fa-tint text-3xl text-blue-500 mr-4"></i>
+                        <div>
+                            <p class="text-3xl font-bold text-blue-500 count-up" data-target="65">65</p>
+                            <p class="text-sm text-gray-500">%</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 animate__animated animate__fadeInUp" style="animation-delay: 0.4s;">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Precipitación</h2>
+                    <div class="flex items-center">
+                        <i class="fas fa-cloud-rain text-3xl text-indigo-500 mr-4"></i>
+                        <div>
+                            <p class="text-3xl font-bold text-indigo-500 count-up" data-target="120">120</p>
+                            <p class="text-sm text-gray-500">mm</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 animate__animated animate__fadeInUp" style="animation-delay: 0.6s;">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Velocidad del Viento</h2>
+                    <div class="flex items-center">
+                        <i class="fas fa-wind text-3xl text-yellow-500 mr-4"></i>
+                        <div>
+                            <p class="text-3xl font-bold text-yellow-500 count-up" data-target="15">15</p>
+                            <p class="text-sm text-gray-500">km/h</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Predicción de Temperatura</h2>
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Predicción de Precipitaciones</h2>
+                    <canvas id="rainfallChart"></canvas>
+                </div>
+            </div>
+
+
+        
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 col-span-2">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Mapa de Microclimas</h2>
+                    <div class="aspect-w-16 aspect-h-9">
+                        <div id="microclimate-map-dashboard" class="h-96 rounded-lg"></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Alertas Recientes</h2>
+                    <div class="space-y-4">
+                        <div class="bg-white border border-red-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+                                <span class="font-semibold text-red-700">Alerta de sequía</span>
+                            </div>
+                            <p class="text-sm text-red-600 mt-1">Sector A - Riesgo alto</p>
+                            <p class="text-xs text-gray-600 mt-1">Hace 2 horas</p>
+                        </div>
+                        <div class="bg-white border border-yellow-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-snowflake text-yellow-500 mr-2"></i>
+                                <span class="font-semibold text-yellow-700">Posible helada</span>
+                            </div>
+                            <p class="text-sm text-yellow-600 mt-1">Sector B - Riesgo moderado</p>
+                            <p class="text-xs text-gray-600 mt-1">Hace 4 horas</p>
+                        </div>
+                        <div class="bg-white border border-green-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                <span class="font-semibold text-green-700">Condiciones óptimas</span>
+                            </div>
+                            <p class="text-sm text-green-600 mt-1">Sector C - Sin riesgos</p>
+                            <p class="text-xs text-gray-600 mt-1">Hace 1 hora</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Recomendaciones de Cultivo</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 border rounded-lg hover:bg-green-50 transition duration-300">
+                        <h3 class="font-semibold mb-2">Maíz</h3>
+                        <p class="text-sm text-gray-600">Condiciones favorables para siembra en los próximos 7 días.</p>
+                    </div>
+                    <div class="p-4 border rounded-lg hover:bg-green-50 transition duration-300">
+                        <h3 class="font-semibold mb-2">Arroz</h3>
+                        <p class="text-sm text-gray-600">Monitorear niveles de agua debido a posibles lluvias intensas.</p>
+                    </div>
+                    <div class="p-4 border rounded-lg hover:bg-green-50 transition duration-300">
+                        <h3 class="font-semibold mb-2">Café</h3>
+                        <p class="text-sm text-gray-600">Óptimo para cosecha en las próximas 2 semanas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Field Information Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Información de Campos</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="border rounded-lg p-4">
+                        <h3 class="font-semibold mb-2">Campo Norte</h3>
+                        <p class="text-sm text-gray-600 mb-2">Cultivo: Maíz</p>
+                        <p class="text-sm text-gray-600 mb-2">Área: 50 hectáreas</p>
+                        <p class="text-sm text-gray-600">Última lluvia: 0.5" hace 3 días</p>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <h3 class="font-semibold  mb-2">Campo Sur</h3>
+                        <p class="text-sm text-gray-600 mb-2">Cultivo: Soja</p>
+                        <p class="text-sm text-gray-600 mb-2">Área: 75 hectáreas</p>
+                        <p class="text-sm text-gray-600">Última lluvia: 0.75" hace 2 días</p>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <h3 class="font-semibold mb-2">Campo Este</h3>
+                        <p class="text-sm text-gray-600 mb-2">Cultivo: Trigo</p>
+                        <p class="text-sm text-gray-600 mb-2">Área: 60 hectáreas</p>
+                        <p class="text-sm text-gray-600">Última lluvia: 0.25" hace 5 días</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Marketing Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Marketing de Cultivos</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-semibold mb-2">Maíz</h3>
+                        <div class="flex items-center mb-2">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mr-2">
+                                <div class="bg-yellow-400 h-2.5 rounded-full" style="width: 75%"></div>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">75%</span>
+                        </div>
+                        <p class="text-sm text-gray-600">Cosechado: 75% | Sin cosechar: 25%</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold mb-2">Soja</h3>
+                        <div class="flex items-center mb-2">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mr-2">
+                                <div class="bg-green-500 h-2.5 rounded-full" style="width: 60%"></div>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">60%</span>
+                        </div>
+                        <p class="text-sm text-gray-600">Cosechado: 60% | Sin cosechar: 40%</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widgets dinámicos basados en los servicios -->
+            <div id="dynamicWidgets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Los widgets dinámicos se generarán aquí -->
+            </div>
+        </div>
+
+        <footer class="bg-white shadow-md mt-12">
+            <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                <p class="text-center text-gray-500 text-sm">
+                    Hecho con ❤️ por obedev © 2024 TerraPredict. Todos los derechos reservados.
+                </p>
+            </div>
+        </footer>
+    </div>
+
+
+
+
+
+
+    <div id="zoneModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-3xl font-bold mb-4">Selecciona la zona de tus cultivos</h2>
+            <p class="mb-6 text-lg">
+                Dibuja un polígono, rectángulo o cuadrado en el mapa para seleccionar la zona de tus cultivos. 
+                Esta área se utilizará para realizar predicciones de microclima y otros análisis específicos para tu terreno.
+                Asegúrate de seleccionar solo áreas terrestres para obtener resultados precisos.
+            </p>
+            <div id="map"></div>
+            <div class="flex justify-between items-center mt-6">
+                <input type="text" id="zoneName" placeholder="Nombre de la zona" value="Zona A" class="border rounded px-4 py-2 w-1/2 text-lg">
+                <button id="saveZone" class="bg-green-500 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-green-600 transition duration-300">Guardar zona</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="notificationContainer"></div>
+    
+    <div id="notificationsArea" class="hidden fixed right-0 top-16 w-80 bg-white rounded-lg shadow-xl p-4 m-4 z-50">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Notificaciones</h2>
+        <div id="notificationsList" class="space-y-4 max-h-96 overflow-y-auto">
+            <!-- Las notificaciones se cargarán aquí dinámicamente -->
+        </div>
+    </div>
+
+
+
+<script>
+    let notifications = [];
+
+    function loadNotifications() {
+        fetch('/api/notifications', { method: 'GET' })
+            .then(response => response.json())
+            .then(data => {
+                notifications = data;
+                updateNotificationCount();
+                renderNotifications();
+            })
+            .catch(error => console.error('Error loading notifications:', error));
+    }
+
+    function updateNotificationCount() {
+        const count = notifications.filter(n => !n.read).length;
+        const notificationCountElement = document.getElementById('notificationCount');
+        if (notificationCountElement) {
+            notificationCountElement.textContent = count;
+            notificationCountElement.style.display = count > 0 ? 'flex' : 'none';
+        }
+    }
+
+    function renderNotifications() {
+        const notificationsList = document.getElementById('notificationsList');
+        notificationsList.innerHTML = '';
+        notifications.forEach(notification => {
+            const notificationElement = document.createElement('div');
+            notificationElement.className = `p-4 rounded-lg ${notification.type === 'success' ? 'bg-green-100' : notification.type === 'error' ? 'bg-red-100' : 'bg-blue-100'}`;
+            notificationElement.innerHTML = `
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        ${notification.type === 'success' ? '✅' : notification.type === 'error' ? '❌' : 'ℹ️'}
+                    </div>
+                    <div class="ml-3 flex-grow">
+                        <p class="text-sm font-medium text-gray-900">${notification.message}</p>
+                        <p class="mt-1 text-xs text-gray-500">${new Date(notification.created_at).toLocaleString()}</p>
+                    </div>
+                    <button class="ml-2 text-gray-400 hover:text-gray-600 js-mark-as-read" data-id="${notification.id}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            notificationsList.appendChild(notificationElement);
+        });
+
+        // Add event listeners for mark as read buttons
+        document.querySelectorAll('.js-mark-as-read').forEach(button => {
+            button.addEventListener('click', function() {
+                markAsRead(this.getAttribute('data-id'));
+            });
+        });
+    }
+
+    function markAsRead(id) {
+        fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    notifications = notifications.filter(n => n.id != id);
+                    updateNotificationCount();
+                    renderNotifications();
+                }
+            })
+            .catch(error => console.error('Error marking notification as read:', error));
+    }
+
+    document.getElementById('notificationsButton').addEventListener('click', function() {
+        const notificationsArea = document.getElementById('notificationsArea');
+        notificationsArea.classList.toggle('hidden');
+        if (!notificationsArea.classList.contains('hidden')) {
+            loadNotifications();
+        }
+    });
+
+    // Cargar notificaciones cuando se carga la página
+    document.addEventListener('DOMContentLoaded', loadNotifications);
+
+    // Función para mostrar notificaciones (actualizada)
+    function showNotification(type, title, message) {
+    const container = document.getElementById('notificationContainer');
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    let icon;
+    switch(type) {
+        case 'success':
+            icon = '✅';
+            break;
+        case 'error':
+            icon = '❌';
+            break;
+        default:
+            icon = 'ℹ️';
+    }
+    
+    notification.innerHTML = `
+        <div class="notification-icon">${icon}</div>
+        <div class="notification-content">
+            <div class="notification-title">${title}</div>
+            <div class="notification-message">${message}</div>
+        </div>
+        <div class="notification-close">×</div>
+    `;
+    container.appendChild(notification);
+
+    const close = notification.querySelector('.notification-close');
+    close.addEventListener('click', () => {
+        notification.style.animation = 'slideOut 0.5s ease-in';
+        setTimeout(() => {
+            container.removeChild(notification);
+        }, 500);
+    });
+
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.5s ease-in';
+        setTimeout(() => {
+            container.removeChild(notification);
+        }, 500);
+    }, 5000);
+
+    // Guardar la notificación en la base de datos
+    fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type, title, message })
+    });
+}
+
+    //showNotification('success', 'Éxito', 'La zona se ha guardado correctamente.');
+    // showNotification('error', 'Error', 'No se pudo guardar la zona. Inténtalo de nuevo.');
+   // showNotification('info', 'Información', 'Recuerda actualizar tus datos regularmente.');
+</script>
+
+<script>
+    let map, drawnItems;
+    let userZone = null;
+
+    function initMap() {
+        map = L.map('map').setView([8.5, -80], 7); // Centrado en Panamá
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        const drawControl = new L.Control.Draw({
+            draw: {
+                polygon: true,
+                rectangle: true,
+                circle: false,
+                circlemarker: false,
+                marker: false,
+                polyline: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                remove: true
+            }
+        });
+        map.addControl(drawControl);
+
+        map.on(L.Draw.Event.CREATED, function (event) {
+            drawnItems.clearLayers();
+            const layer = event.layer;
+            drawnItems.addLayer(layer);
+        });
+    }
+
+    function showZoneModal() {
+        const modal = document.getElementById('zoneModal');
+        modal.style.display = 'block';
+        initMap();
+    }
+
+    document.getElementById('saveZone').addEventListener('click', function() {
+        const zoneName = document.getElementById('zoneName').value || 'Zona A';
+        const drawnLayers = drawnItems.getLayers();
+        if (drawnLayers.length > 0) {
+            const coordinates = drawnLayers[0].getLatLngs()[0].map(latlng => [latlng.lat, latlng.lng]);
+            const zoneData = {
+                name: zoneName,
+                coordinates: coordinates
+            };
+            fetch('/api/user/zone', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(zoneData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert('Zona guardada exitosamente');
+                    document.getElementById('zoneModal').style.display = 'none';
+                    userZone = data.zone;
+                } else {
+                    alert(`Error al guardar la zona: ${data.error}`);
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert(`Error al guardar la zona: ${error.error || 'Error desconocido'}`);
+            });
+        } else {
+            alert('Por favor, dibuja una zona en el mapa');
+        }
+    });
+
+    function displayUserZones() {
+    if (!map) {
+        initMap();
+    }
+    
+    // Clear existing zones
+    drawnItems.clearLayers();
+    
+    userZone.forEach(zone => {
+        const polygon = L.polygon(zone.coordinates, {color: 'red'});
+        polygon.addTo(drawnItems);
+        polygon.bindPopup(zone.name);
+    });
+    
+    // Fit the map to show all zones
+    if (userZone.length > 0) {
+        map.fitBounds(drawnItems.getBounds());
+    }
+}
+
+    // Llamar a checkUserZone cuando se carga la página
+    document.addEventListener('DOMContentLoaded', checkUserZone);
+
+    function checkUserZone() {
+    fetch('/api/user/zones')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && Array.isArray(data.zones)) {
+                if (data.zones.length === 0) {
+                    // No hay zonas definidas
+                    showZoneModal();
+                } else {
+                    // Hay una o más zonas
+                    userZone = data.zones;
+                    displayUserZones(); // Muestra las zonas si están definidas
+                }
+            } else {
+                console.error("Formato de datos no esperado:", data);
+                // Maneja el caso en que el formato de respuesta no es el esperado
+            }
+        })
+        .catch(error => {
+            console.error('Error al obtener la zona del usuario:', error);
+            // Puedes manejar el error aquí, por ejemplo, mostrando un mensaje al usuario
+        });
+}
+
+</script>
+
+    <script>
+
+
+
+
+        // Fetch user data and populate the dashboard
+        fetch('/api/user')
+            .then(response => response.json())
+            .then(userData => {
+                const userDataContainer = document.getElementById('user-data');
+                const userInfoFields = [
+                    { key: 'nombre', label: 'Nombre', icon: 'user' },
+                    { key: 'apellido', label: 'Apellido', icon: 'user' },
+                    { key: 'compania', label: 'Empresa', icon: 'building' },
+                    { key: 'empleados', label: 'Empleados', icon: 'users' },
+                    { key: 'correo', label: 'Correo', icon: 'envelope' },
+                    { key: 'telefono', label: 'Teléfono', icon: 'phone' },
+                    { key: 'sitio_web', label: 'Sitio Web', icon: 'globe' },
+                    { key: 'pais', label: 'País', icon: 'map-marker-alt' },
+                ];
+    
+                userInfoFields.forEach(field => {
+                    if (userData[field.key]) {
+                        const fieldElement = document.createElement('div');
+                        fieldElement.className = 'flex items-center space-x-2';
+                        fieldElement.innerHTML = `
+                            <i class="fas fa-${field.icon} text-green-500"></i>
+                            <span class="font-semibold">${field.label}:</span>
+                            <span>${userData[field.key]}</span>
+                        `;
+                        userDataContainer.appendChild(fieldElement);
+                    }
+                });
+    
+                // Display sector and services
+                if (userData.sector && userData.sector.length > 0) {
+                    const sectorElement = document.createElement('div');
+                    sectorElement.className = 'flex items-center space-x-2';
+                    sectorElement.innerHTML = `
+                        <i class="fas fa-seedling text-green-500"></i>
+                        <span class="font-semibold">Sector:</span>
+                        <span>${userData.sector.join(', ')}</span>
+                    `;
+                    userDataContainer.appendChild(sectorElement);
+                }
+    
+                if (userData.services && userData.services.length > 0) {
+                    const servicesElement = document.createElement('div');
+                    servicesElement.className = 'flex items-center space-x-2';
+                    servicesElement.innerHTML = `
+                        <i class="fas fa-cogs text-green-500"></i>
+                        <span class="font-semibold">Servicios:</span>
+                        <span>${userData.services.join(', ')}</span>
+                    `;
+                    userDataContainer.appendChild(servicesElement);
+    
+                    // Generar widgets y actualizar sidebar basado en los servicios del usuario
+                    generateWidgets(userData.services);
+                    updateSidebar(userData.services);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching user data:', error);
+                const userDataContainer = document.getElementById('user-data');
+                userDataContainer.innerHTML = '<p class="text-red-500">Error al cargar los datos del usuario. Por favor, recarga la página.</p>';
+            });
+
+            async function getUserZones() {
+    try {
+        const response = await fetch('/api/user/zones');
+        if (!response.ok) {
+            throw new Error('Error al obtener las zonas del usuario');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.zones)) {
+            return data.zones;
+        } else {
+            console.warn('La respuesta no contiene zonas o no es exitosa.');
+            return [];
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        return [];
+    }
+}
+    
+        // Función para generar widgets basados en los servicios del usuario
+        function generateWidgets(services) {
+            const dynamicWidgetsContainer = document.getElementById('dynamicWidgets');
+            dynamicWidgetsContainer.innerHTML = ''; // Limpiar widgets existentes
+    
+            const widgetTemplates = {
+                "Predicción de Microclimas": `
+        <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300 cursor-pointer" onclick="window.location.href='/dashboard/prediccion-de-microclimas'">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Predicción de Microclimas</h2>
+            <div id="microclimate-map" class="h-48 rounded-lg"></div>
+        </div>
+    `,
+                "Optimización de Riego": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Optimización de Riego</h2>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600">Estado del suelo:</p>
+                                <p class="text-lg font-bold text-blue-500">Óptimo</p>
+                            </div>
+                            <i class="fas fa-tint text-4xl text-blue-400"></i>
+                        </div>
+                        <div class="mt-4">
+                            <p class="text-sm text-gray-600">Próximo riego programado:</p>
+                            <p class="text-md font-semibold">Mañana, 6:00 AM</p>
+                        </div>
+                    </div>
+                `,
+                "Monitoreo de Plagas": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Monitoreo de Plagas</h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Nivel de riesgo:</p>
+                                <p class="text-lg font-bold text-yellow-500">Moderado</p>
+                            </div>
+                            <i class="fas fa-bug text-4xl text-yellow-400"></i>
+                        </div>
+                        <p class="text-sm text-gray-600">Plagas detectadas: Áfidos, Trips</p>
+                    </div>
+                `,
+                "Recomendaciones de Cultivo": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Recomendaciones de Cultivo</h2>
+                        <ul class="space-y-2">
+                            <li class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Aplicar fertilizante nitrogenado</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Monitorear humedad del suelo</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+                                <span>Vigilar signos de estrés hídrico</span>
+                            </li>
+                        </ul>
+                    </div>
+                `,
+                "Análisis de Rendimiento": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Análisis de Rendimiento</h2>
+                        <canvas id="yieldChart" width="400" height="200"></canvas>
+                    </div>
+                `,
+                "Imágenes Satelitales": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Imágenes Satelitales</h2>
+                        <img src="/img/sattelite.png" alt="Imagen Satelital" class="w-full h-48 object-cover rounded-lg">
+                        <p class="mt-2 text-sm text-gray-600">Última actualización: Hace 2 días</p>
+                    </div>
+                `,
+                "Gestión de Riesgos Climáticos": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Gestión de Riesgos Climáticos</h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Riesgo actual:</p>
+                                <p class="text-lg font-bold text-green-500">Bajo</p>
+                            </div>
+                            <i class="fas fa-shield-alt text-4xl text-green-400"></i>
+                        </div>
+                        <p class="text-sm text-gray-600">Próxima alerta: Ninguna en las próximas 72 horas</p>
+                    </div>
+                `,
+                "Vigilancia Forestal y Biodiversidad": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Vigilancia Forestal y Biodiversidad</h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Estado del bosque:</p>
+                                <p class="text-lg font-bold text-green-500">Saludable</p>
+                            </div>
+                            <i class="fas fa-tree text-4xl text-green-600"></i>
+                        </div>
+                        <p class="text-sm text-gray-600">Especies observadas: 120 (↑5% desde el último mes)</p>
+                    </div>
+                `,
+                "Cartografía de Riesgos de Infraestructuras": `
+                    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-300">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Cartografía de Riesgos de Infraestructuras</h2>
+                        <div class="aspect-w-16 aspect-h-9 mb-4">
+                            <img src="/img/cartografia-de-riesgos-de-infraestructuras.png" alt="Mapa de Riesgos" class="rounded-lg object-cover w-full h-full">
+                        </div>
+                        <p class="text-sm text-gray-600">Áreas de alto riesgo identificadas: 3</p>
+                    </div>
+                `
+            };
+    
+            services.forEach(service => {
+                if (widgetTemplates[service]) {
+                    dynamicWidgetsContainer.innerHTML += widgetTemplates[service];
+                }
+            });
+
+            function isValidLatLng(lat, lng) {
+    return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
+// Function to get color based on temperature
+function getTemperatureColor(temp) {
+    if (temp < 0) return '#E0FFFF';
+    if (temp < 5) return '#B2FFFF';
+    if (temp < 10) return '#80FFFF';
+    if (temp < 15) return '#4DFFFF';
+    if (temp < 20) return '#00FFB2';
+    if (temp < 25) return '#00FF80';
+    if (temp < 30) return '#80FF00';
+    if (temp < 35) return '#FFFF00';
+    if (temp < 40) return '#FF8000';
+    return '#FF0000';
+}
+
+// Function to create a custom marker icon
+function createCustomMarker(temperature) {
+    const color = getTemperatureColor(temperature);
+    return L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    });
+}
+
+            function initZoneMap(mapId, zone) {
+    // Inicializar el mapa sin una vista específica
+    const zoneMap = L.map(mapId);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(zoneMap);
+
+    const polygon = L.polygon(zone.coordinates, {color: 'red'}).addTo(zoneMap);
+
+    // Centrar el mapa en el polígono
+    zoneMap.fitBounds(polygon.getBounds());
+
+    // Agregar puntos de microclima
+    if (zone.microclimates) {
+        console.log('Microclimates:', zone.microclimates);
+
+        Object.entries(zone.microclimates).forEach(([key, microclimate]) => {
+            console.log('Processing microclimate:', key, microclimate);
+
+            let coordinates;
+            if (Array.isArray(microclimate.coordinates)) {
+                // Asumimos que el primer número mayor a 0 es la latitud
+                if (microclimate.coordinates[0] > 0) {
+                    coordinates = microclimate.coordinates;
+                } else {
+                    coordinates = microclimate.coordinates.slice().reverse();
+                }
+            } else if (microclimate.coordinates && typeof microclimate.coordinates === 'object') {
+                coordinates = [microclimate.coordinates.lat, microclimate.coordinates.lng];
+            } else {
+                console.error('Invalid coordinates for microclimate:', key, microclimate);
+                return; // Skip this microclimate if coordinates are invalid
+            }
+
+            // Verificar si las coordenadas son válidas
+            if (!isValidLatLng(coordinates[0], coordinates[1])) {
+                console.error('Invalid latitude or longitude:', coordinates);
+                return; // Skip this microclimate if coordinates are invalid
+            }
+
+            const marker = L.marker(coordinates, {
+                icon: createCustomMarker(microclimate.temperature || 25)
+            }).addTo(zoneMap);
+
+            marker.bindPopup(`
+                <strong>Microclima ${parseInt(key) + 1}</strong><br>
+                Temperatura: ${microclimate.temperature || 'N/A'}°C<br>
+                Humedad: ${microclimate.humidity || 'N/A'}%<br>
+                Nubosidad: ${microclimate.cloud_cover || 'N/A'}%<br>
+                Viento: ${microclimate.wind_speed || 'N/A'} km/h<br>
+                Dirección del viento: ${microclimate.wind_direction || 'N/A'}<br>
+                Precipitación: ${microclimate.precipitation_mm || 'N/A'} mm<br>
+                Tipo de precipitación: ${microclimate.precipitation_type || 'N/A'}<br>
+                Presión atmosférica: ${microclimate.pressure || 'N/A'} hPa<br>
+                Bioma: ${microclimate.biome || 'N/A'}<br>
+                Elevación: ${microclimate.elevation || 'N/A'} m<br>
+                Pendiente: ${microclimate.slope || 'N/A'}<br>
+                Descripción de vegetación: ${microclimate.vegetation_description || 'N/A'}<br>
+                Nivel de vegetación: ${microclimate.vegetation_level || 'N/A'}
+            `);
+
+            marker.on('click', () => showMicroclimateInfo(zone.id, key));
+        });
+    }
+
+
+    // Asegurar que el mapa se ajuste correctamente después de que todos los elementos se hayan cargado
+    setTimeout(() => {
+        zoneMap.invalidateSize();
+        zoneMap.fitBounds(polygon.getBounds(), {
+            padding: [50, 50],
+            maxZoom: 13
+        });
+    }, 100);
+}
+            
+
+            async function initMicroclimateWidget() {
+    const zones = await getUserZones();
+    if (zones.length > 0) {
+        const firstZone = zones[0];
+        initZoneMap('microclimate-map', firstZone);
+    }
+
+    if (zones.length > 0) {
+        const firstZone = zones[0];
+        initZoneMap('microclimate-map-dashboard', firstZone);
+    }
+}
+
+
+
+// Llama a esta función después de generar los widgets
+initMicroclimateWidget();
+    
+            // Inicializar gráficos si es necesario
+            if (services.includes("Análisis de Rendimiento")) {
+                const ctx = document.getElementById('yieldChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                        datasets: [{
+                            label: 'Rendimiento (ton/ha)',
+                            data: [4.2, 4.5, 4.8, 5.1, 5.3, 5.6],
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    
+        // Función para actualizar el menú del sidebar
+        function updateSidebar(services) {
+            const sidebarMenu = document.getElementById('sidebarMenu');
+            sidebarMenu.innerHTML = `
+                <li>
+                    <a href="/dashboard" class="flex items-center space-x-3 text-gray-700 hover:text-green-500 hover:bg-green-50 rounded-lg p-2 transition duration-300 group">
+                        <i class="fas fa-chart-line text-2xl group-hover:scale-110 transition-transform duration-300 text-blue-500"></i>
+                        <span class="text-base sidebar-text">Dashboard</span>
+                    </a>
+                </li>
+                
+                <li>
+                    <a href="#" class="flex items-center space-x-3 text-gray-700 hover:text-green-500 hover:bg-green-50 rounded-lg p-2 transition duration-300 group">
+                        <i class="fas fa-map-marker-alt text-2xl group-hover:scale-110 transition-transform duration-300 text-red-500"></i>
+                        <span class="text-base sidebar-text">Campos</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 text-gray-700 hover:text-green-500 hover:bg-green-50 rounded-lg p-2 transition duration-300 group">
+                        <i class="fas fa-tractor text-2xl group-hover:scale-110 transition-transform duration-300 text-yellow-500"></i>
+                        <span class="text-base sidebar-text">Equipamiento</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 text-gray-700 hover:text-green-500 hover:bg-green-50 rounded-lg p-2 transition duration-300 group">
+                        <i class="fas fa-warehouse text-2xl group-hover:scale-110 transition-transform duration-300 text-orange-500"></i>
+                        <span class="text-base sidebar-text">Almacenamiento</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 text-gray-700 hover:text-green-500 hover:bg-green-50 rounded-lg p-2 transition duration-300 group">
+                        <i class="fas fa-file-alt text-2xl group-hover:scale-110 transition-transform duration-300 text-indigo-500"></i>
+                        <span class="text-base sidebar-text">Informes</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="flex items-center space-x-3 text-gray-700 hover:text-green-500 hover:bg-green-50 rounded-lg p-2 transition duration-300 group">
+                        <i class="fas fa-coins text-2xl group-hover:scale-110 transition-transform duration-300 text-yellow-400"></i>
+                        <span class="text-base sidebar-text">Finanzas</span>
+                    </a>
+                </li>
+            `;
+    
+            const menuItems = {
+                "Predicción de Microclimas": { icon: "fa-temperature-high", color: "text-red-500", link: "/dashboard/prediccion-de-microclimas" },
+                "Optimización de Riego": { icon: "fa-tint", color: "text-blue-500" },
+                "Monitoreo de Plagas": { icon: "fa-bug", color: "text-green-500" },
+                "Recomendaciones de Cultivo": { icon: "fa-seedling", color: "text-green-600" },
+                "Análisis de Rendimiento": { icon: "fa-chart-bar", color: "text-purple-500" },
+                "Imágenes Satelitales": { icon: "fa-satellite", color: "text-indigo-500" },
+                "Gestión de Riesgos Climáticos": { icon: "fa-cloud-sun-rain", color: "text-yellow-500" },
+                "Vigilancia Forestal y Biodiversidad": { icon: "fa-tree", color: "text-green-700" },
+                "Cartografía de Riesgos de Infraestructuras": { icon: "fa-map-marked-alt", color: "text-orange-500" }
+            };
+    
+            services.forEach(service => {
+            if (menuItems[service]) {
+              const item = menuItems[service];
+              const href = item.link ? item.link : "#";
+              sidebarMenu.innerHTML += `
+            <li>
+                <a href="${href}" class="flex items-center space-x-3 text-gray-700 hover:text-green-500 hover:bg-green-50 rounded-lg p-2 transition duration-300 group">
+                    <i class="fas ${item.icon} text-2xl group-hover:scale-110 transition-transform duration-300 ${item.color}"></i>
+                    <span class="text-base sidebar-text">${service}</span>
+                </a>
+            </li>
+        `;
+    }
+});
+        }
+    
+        // Animación de conteo
+        document.querySelectorAll('.count-up').forEach(el => {
+            el.style.setProperty('--target', el.dataset.target);
+        });
+    
+        // Gráfico de temperatura
+        const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+        new Chart(tempCtx, {
+            type: 'line',
+            data: {
+                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                datasets: [{
+                    label: 'Temperatura (°C)',
+                    data: [25, 26, 27, 28, 27, 26, 25],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Pronóstico de Temperatura Semanal'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                },
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+    
+        // Gráfico de precipitaciones
+        const rainCtx = document.getElementById('rainfallChart').getContext('2d');
+        new Chart(rainCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                datasets: [{
+                    label: 'Precipitación (mm)',
+                    data: [5, 15, 30, 10, 20, 25, 5],
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Pronóstico de Precipitaciones Semanal'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutBounce'
+                }
+            }
+        });
+    
+        // Toggle sidebar
+        document.getElementById('toggleSidebar').addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            const toggleButton = this;
+            const sidebarTexts = document.querySelectorAll('.sidebar-text');
+            
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                sidebar.style.width = '60px';
+                toggleButton.style.transform = 'translateX(-100%)';
+                toggleButton.innerHTML = '<i class="fas fa-chevron-right text-xl"></i>';
+                sidebarTexts.forEach(text => {
+                    text.classList.add('opacity-0');
+                    setTimeout(() => text.classList.add('hidden'), 300);
+                });
+            } else {
+                sidebar.style.width = '256px';
+                toggleButton.style.transform = 'translateX(0)';
+                toggleButton.innerHTML = '<i class="fas fa-chevron-left text-xl"></i>';
+                sidebarTexts.forEach(text => {
+                    text.classList.remove('hidden');
+                    setTimeout(() => text.classList.remove('opacity-0'), 50);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
