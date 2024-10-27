@@ -92,7 +92,7 @@ app.use(auth({
   authRequired: false,
   auth0Logout: true,
   secret: config.auth0ClientSecret,
-  baseURL: `http://localhost:${config.port}`,
+  baseURL: 'https://dashboard-exuw.onrender.com',
   clientID: config.auth0ClientId,
   issuerBaseURL: `https://${config.auth0Domain}`,
   routes: {
@@ -446,7 +446,7 @@ app.put('/api/user/zone/:id', requiresAuth(), async (req, res) => {
 
 async function fetchMicroclimateData(geojson) {
   try {
-    const response = await axios.post('http://localhost:5000/microclimate/divider', {
+    const response = await axios.post('https://api-i6e7.onrender.com/microclimate/divider', {
       geojson: geojson
     }, {
       headers: {

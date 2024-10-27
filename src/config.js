@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 module.exports = {
-  port: process.env.PORT || 3000,
+  port: process.env.PORT || 4000,
   auth0Domain: process.env.AUTH0_DOMAIN,
   auth0ClientId: process.env.AUTH0_CLIENT_ID,
   auth0ClientSecret: process.env.AUTH0_CLIENT_SECRET,

@@ -269,27 +269,43 @@
                         <div class="bg-white border border-red-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
                             <div class="flex items-center">
                                 <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
-                                <span class="font-semibold text-red-700">Alerta de sequía</span>
+                                <span class="font-semibold text-red-700">Alerta de sequía extrema</span>
                             </div>
-                            <p class="text-sm text-red-600 mt-1">Sector A - Riesgo alto</p>
+                            <p class="text-sm text-red-600 mt-1">Zona A - 14 días sin lluvias, riesgo crítico</p>
                             <p class="text-xs text-gray-600 mt-1">Hace 2 horas</p>
+                        </div>
+                        <div class="bg-white border border-orange-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-fire text-orange-500 mr-2"></i>
+                                <span class="font-semibold text-orange-700">Alerta de incendio</span>
+                            </div>
+                            <p class="text-sm text-orange-600 mt-1">Zona D - Focos de calor detectados</p>
+                            <p class="text-xs text-gray-600 mt-1">Hace 1 hora</p>
                         </div>
                         <div class="bg-white border border-yellow-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
                             <div class="flex items-center">
-                                <i class="fas fa-snowflake text-yellow-500 mr-2"></i>
-                                <span class="font-semibold text-yellow-700">Posible helada</span>
+                                <i class="fas fa-seedling text-yellow-500 mr-2"></i>
+                                <span class="font-semibold text-yellow-700">Alerta de baja vegetación</span>
                             </div>
-                            <p class="text-sm text-yellow-600 mt-1">Sector B - Riesgo moderado</p>
-                            <p class="text-xs text-gray-600 mt-1">Hace 4 horas</p>
+                            <p class="text-sm text-yellow-600 mt-1">Zona E - Vegetación al 20% del nivel promedio</p>
+                            <p class="text-xs text-gray-600 mt-1">Hace 3 horas</p>
+                        </div>
+                        <div class="bg-white border border-blue-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-temperature-low text-blue-500 mr-2"></i>
+                                <span class="font-semibold text-blue-700">Advertencia de heladas</span>
+                            </div>
+                            <p class="text-sm text-blue-600 mt-1">Zona B - Posible helada nocturna</p>
+                            <p class="text-xs text-gray-600 mt-1">Hace 5 horas</p>
                         </div>
                         <div class="bg-white border border-green-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
                             <div class="flex items-center">
-                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                <i class="fas fa-leaf text-green-500 mr-2"></i>
                                 <span class="font-semibold text-green-700">Condiciones óptimas</span>
                             </div>
-                            <p class="text-sm text-green-600 mt-1">Sector C - Sin riesgos</p>
-                            <p class="text-xs text-gray-600 mt-1">Hace 1 hora</p>
-                        </div>
+                            <p class="text-sm text-green-600 mt-1">Zona C - Vegetación y clima favorable</p>
+                            <p class="text-xs text-gray-600 mt-1">Hace 30 minutos</p>
+                        </div>                        
                     </div>
                 </div>
             </div>
@@ -542,7 +558,7 @@
     });
 }
 
-    //showNotification('success', 'Éxito', 'La zona se ha guardado correctamente.');
+     //showNotification('success', 'Éxito', 'La zona se ha guardado correctamente.');
     // showNotification('error', 'Error', 'No se pudo guardar la zona. Inténtalo de nuevo.');
    // showNotification('info', 'Información', 'Recuerda actualizar tus datos regularmente.');
 </script>
@@ -613,19 +629,20 @@
             })
             .then(data => {
                 if (data.success) {
-                    alert('Zona guardada exitosamente');
+                     showNotification('success', 'Éxito', 'La zona se ha guardado correctamente.');
                     document.getElementById('zoneModal').style.display = 'none';
                     userZone = data.zone;
                 } else {
-                    alert(`Error al guardar la zona: ${data.error}`);
+                     showNotification('error', 'Error', 'No se pudo guardar la zona. Inténtalo de nuevo.');
                 }
             })
             .catch((error) => {
                 console.error('Error:', error);
+                showNotification('error', 'Error', 'No se pudo guardar la zona. Inténtalo de nuevo.');
                 alert(`Error al guardar la zona: ${error.error || 'Error desconocido'}`);
             });
         } else {
-            alert('Por favor, dibuja una zona en el mapa');
+            showNotification('error', 'Error', 'Por favor, dibuja una zona en el mapa.');
         }
     });
 
